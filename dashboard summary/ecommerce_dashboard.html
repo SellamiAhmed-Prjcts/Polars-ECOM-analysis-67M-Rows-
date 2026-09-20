@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>E-commerce Dashboard</title>
+<style>
+:root{--bg:#fff;--card:#f2f2f2;--cell:#e6e6e6;--text:#444;--blue:#0b3c91;--sky:#1e90ff;--navy:#1a3fa0;--orange:#f57c00;--red:#b71c1c;--lblue:#1e88e5;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14171c;--card:#232830;--cell:#2d333c;--text:#ddd}}
+:root[data-theme="dark"]{--bg:#14171c;--card:#232830;--cell:#2d333c;--text:#ddd}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,sans-serif;padding:20px;max-width:1000px;margin:auto}
+h1{margin:0 0 4px;color:var(--blue)} .sub{margin:0 0 18px;font-size:13px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-bottom:18px}
+.kpi{background:var(--card);border-radius:14px;overflow:hidden}
+.kpi .h{color:#fff;padding:8px 14px;font-size:13px;border-radius:14px 14px 0 0}
+.kpi .v{font-size:30px;font-weight:bold;padding:14px;text-align:center}
+.panel{background:var(--card);border-radius:14px;padding:16px;margin-bottom:18px}
+.panel h2{margin:0 0 12px;font-size:16px;color:var(--blue)}
+.tabs button{border:0;border-radius:20px;padding:7px 16px;margin:0 6px 10px 0;cursor:pointer;background:var(--cell);color:var(--text);font-size:13px}
+.tabs button.on{background:linear-gradient(90deg,#0b3c91,#1e90ff);color:#fff;font-weight:bold}
+.row{display:flex;align-items:center;margin:8px 0;font-size:13px}
+.name{width:130px;flex-shrink:0;color:#fff;background:linear-gradient(90deg,#0b3c91,#1e90ff);padding:6px 10px;border-radius:20px 0 0 20px;font-weight:bold}
+.track{flex:1;background:var(--cell);border-radius:0 12px 12px 0;height:30px;position:relative}
+.bar{height:100%;border-radius:0 12px 12px 0;min-width:3px}
+.val{position:absolute;right:8px;top:7px}
+.funnel div{color:#fff;padding:10px 14px;margin:6px 0;border-radius:12px;font-size:14px}
+.wrap{overflow-x:auto}
+table{border-collapse:separate;border-spacing:5px;font-size:14px;width:100%}
+th{color:#fff;padding:8px 14px;border-radius:12px 12px 0 0;white-space:nowrap}
+td{background:var(--cell);padding:8px 14px;text-align:center;white-space:nowrap}
+td.stub{background:linear-gradient(90deg,#0b3c91,#1e90ff);color:#fff;font-weight:bold;text-align:left;border-radius:20px 0 0 20px}
+.note{font-size:12px;margin-top:8px}
+</style>
+</head>
+<body>
+<h1>E-commerce Dashboard</h1>
+<p class="sub">Electronics-store event data, November 2019</p>
+
+<div class="grid">
+  <div class="kpi"><div class="h" style="background:var(--orange)">Average customer LTV</div><div class="v">623.12</div></div>
+  <div class="kpi"><div class="h" style="background:var(--navy)">View → Cart</div><div class="v">22.36%</div></div>
+  <div class="kpi"><div class="h" style="background:var(--red)">Cart → Purchase</div><div class="v">53.45%</div></div>
+  <div class="kpi"><div class="h" style="background:var(--lblue)">View → Purchase</div><div class="v">11.95%</div></div>
+</div>
+
+<div class="panel">
+  <h2>Categories</h2>
+  <div class="tabs" id="groupTabs"></div>
+  <div class="tabs" id="metricTabs"></div>
+  <div id="bars"></div>
+  <p class="note" id="note"></p>
+</div>
+
+<div class="panel">
+  <h2>Conversion funnel (share of views)</h2>
+  <div class="funnel">
+    <div style="background:var(--blue);width:100%">Views: 100%</div>
+    <div style="background:var(--orange);width:22.36%;min-width:190px">Added to cart: 22.36%</div>
+    <div style="background:var(--red);width:11.95%;min-width:190px">Purchased: 11.95%</div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Category table</h2>
+  <div class="wrap"><table id="tbl"></table></div>
+</div>
+
+<script>
+// 1. The data, copied from your preview files
+var best = [
+  {name:"electronics", revenue:205249741.53, orders:493637},
+  {name:"unknown_category", revenue:29879190.27, orders:234214},
+  {name:"appliances", revenue:18640385.14, orders:99023},
+  {name:"computers", revenue:13994330.68, orders:34477},
+  {name:"furniture", revenue:2543251.02, orders:11542}
+];
+var worst = [
+  {name:"sport", revenue:395692.75, orders:1489},
+  {name:"accessories", revenue:98203.02, orders:2154},
+  {name:"medicine", revenue:16442.95, orders:344},
+  {name:"country_yard", revenue:12447.13, orders:60},
+  {name:"stationery", revenue:3212.48, orders:191}
+];
+
+// 2. Current choices
+var group = "best";
+var metric = "revenue";
+
+function fmt(n){
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
+  if (n >= 1000) return (n / 1000).toFixed(1) + "K";
+  return n.toFixed(0);
+}
+
+function makeTabs(id, options, current, onPick){
+  var box = document.getElementById(id);
+  box.innerHTML = "";
+  options.forEach(function(opt){
+    var b = document.createElement("button");
+    b.textContent = opt.label;
+    if (opt.key === current) b.className = "on";
+    b.onclick = function(){ onPick(opt.key); };
+    box.appendChild(b);
+  });
+}
+
+function draw(){
+  makeTabs("groupTabs", [{key:"best",label:"Top 5 best"},{key:"worst",label:"Top 5 worst"}], group, function(k){group=k;draw();});
+  makeTabs("metricTabs", [{key:"revenue",label:"Revenue"},{key:"orders",label:"Orders"}], metric, function(k){metric=k;draw();});
+
+  var rows = group === "best" ? best : worst;
+  var color = metric === "revenue" ? "var(--orange)" : "var(--navy)";
+
+  var biggest = 0;
+  rows.forEach(function(r){ if (r[metric] > biggest) biggest = r[metric]; });
+
+  var html = "";
+  rows.forEach(function(r){
+    var width = (r[metric] / biggest) * 100;
+    html += '<div class="row"><div class="name">' + r.name + '</div>' +
+            '<div class="track"><div class="bar" style="width:' + width + '%;background:' + color + '"></div>' +
+            '<span class="val">' + fmt(r[metric]) + '</span></div></div>';
+  });
+  document.getElementById("bars").innerHTML = html;
+
+  document.getElementById("note").textContent = (group === "best" && metric === "revenue")
+    ? "Note: 'unknown_category' is #2 by revenue. Many products lack a category, which is worth fixing in the data."
+    : "";
+
+  var t = '<tr><th style="background:transparent"></th><th style="background:var(--orange)">Revenue</th><th style="background:var(--navy)">Orders</th><th style="background:var(--red)">Avg order value</th></tr>';
+  rows.forEach(function(r){
+    var avg = r.revenue / r.orders;
+    t += '<tr><td class="stub">' + r.name + '</td><td>' + r.revenue.toLocaleString() + '</td><td>' + r.orders.toLocaleString() + '</td><td>' + avg.toFixed(2) + '</td></tr>';
+  });
+  document.getElementById("tbl").innerHTML = t;
+}
+draw();
+</script>
+</body>
+</html>
